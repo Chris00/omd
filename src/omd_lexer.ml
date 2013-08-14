@@ -21,7 +21,9 @@
 
 *)
 
-
+(* When a constructor [X] that takes an integer argument [n], it tells
+   the number of repetitions of [X].  The lexer ensures that [n > 0]
+   and that consecutive occurrences of [X] are merged together. *)
 type 'a t = (* "of int":  *)
   | Ampersand
   | Ampersands of int
@@ -84,8 +86,7 @@ type 'a t = (* "of int":  *)
   | Semicolons of int
   | Slash
   | Slashs of int
-  | Space
-  | Spaces of int
+  | Space of int
   | Star
   | Stars of int
   | Tab
@@ -140,7 +141,7 @@ let string_of_t = function
   | Minus -> "-"
   | Minuss  n -> String.make (2+n) '-'
   | Newline -> "\n"
-  | Newlines  n -> String.make (2+n) '\n'
+  | Newlines n -> String.make n '\n'
   | Number s -> s
   | Obrace -> "{"
   | Obraces  n -> String.make (2+n) '{'
@@ -160,8 +161,7 @@ let string_of_t = function
   | Semicolons  n -> String.make (2+n) ';'
   | Slash -> "/"
   | Slashs  n -> String.make (2+n) '/'
-  | Space -> " "
-  | Spaces  n -> String.make (2+n) ' '
+  | Space n -> String.make n ' '
   | Star -> "*"
   | Stars  n -> String.make (2+n) '*'
   | Tab -> "\t"
@@ -197,7 +197,6 @@ let lex s =
           Word (String.sub s start (!i-start))
         else
           match s.[!i] with
-          (* FIXME: pattern matching on chars is inefficient *)
           | ' ' | '\t' | '\n' | '\r' | '#' | '*' | '-' | '+' | '`' | '\''
           | '"' | '\\' | '_' | '[' | ']' | '{' | '}' | '(' | ')' | ':'
           | ';' | '>' | '~' | '<' | '@' | '&' | '|' | '^' | '.' | '/'
@@ -218,7 +217,6 @@ let lex s =
       incr i
     done;
     match s.[!i] with
-    (* FIXME: pattern matching on chars is inefficient *)
     | ' ' | '\t' | '\n' | '\r' | '#' | '*' | '-' | '+' | '`' | '\'' | '"'
     | '\\' | '_' | '[' | ']' | '{' | '}' | '(' | ')' | ':' | ';' | '>'
     | '~' | '<' | '@' | '&' | '|' | '^' | '.' | '/' | '$' | '%' | '!'
@@ -234,22 +232,13 @@ let lex s =
   while !i < l do
     let c = s.[!i] in
     let w = match c with
-      (* FIXME: pattern matching on chars is inefficient *)
-      | ' '  -> let n = n_occ c in if n = 1 then Space else Spaces (n-2)
+      | ' '  -> Space(n_occ c)
       | '\t' -> let n = n_occ c in if n = 1 then Tab else Tabs (n-2)
       | '\n' -> let n = n_occ c in if n = 1 then Newline else Newlines (n-2)
       | '\r' -> (* eliminating \r by converting all styles to unix style *)
           let n = n_occ c in
-            if n = 1 then
-              if !i = l then
-                Newline
-              else
-                if s.[!i] = '\n' then
-                  (incr i; Newline)
-                else
-                  Newline
-            else 
-              Newlines (n-2) 
+          if n = 1 && !i < l && s.[!i] = '\n' then incr i;
+          if n = 1 then Newline else Newlines (n-2)
       | '#'  -> let n = n_occ c in if n = 1 then Hash else Hashs (n-2)
       | '*'  -> let n = n_occ c in if n = 1 then Star else Stars (n-2)
       | '-'  -> let n = n_occ c in if n = 1 then Minus else Minuss (n-2)
@@ -302,7 +291,7 @@ let length = function
   | Colon | Comma | Cparenthesis | Cbracket | Dollar | Dot
   | Doublequote | Exclamation | Equal | Greaterthan | Hash | Lessthan
   | Minus | Obrace | Oparenthesis | Obracket | Percent | Plus
-  | Question | Quote | Semicolon | Slash | Space | Star | Tab
+  | Question | Quote | Semicolon | Slash | Star | Tab
   | Tilde | Underscore -> (1, 0)
   | Ampersands x | Ats x | Backquotes x | Backslashs x | Bars x | Carets x
   | Cbraces x | Colons x | Commas x | Cparenthesiss x | Cbrackets x
@@ -310,18 +299,17 @@ let length = function
   | Doublequotes x | Exclamations x | Equals x | Greaterthans x | Hashs x
   | Lessthans x
   | Minuss x | Obraces x | Oparenthesiss x | Obrackets x | Percents x | Pluss x
-  | Questions x | Quotes x | Semicolons x | Slashs x | Spaces x | Stars x
+  | Questions x | Quotes x | Semicolons x | Slashs x | Stars x
   | Tabs x
   | Tildes x | Underscores x -> (2+x, 0)
   | Newline -> (0, 1)
-  | Newlines x -> (0, 2+x)
+  | Newlines n -> (0, n+2)
+  | Space n -> (n, 0)
   | Number s | Word s -> (String.length s, 0)
 
-let make_space = function
-  | 0 -> raise (Invalid_argument "Md_lexer.make_space")
-  | 1 -> Space
-  | n -> if n < 0 then raise (Invalid_argument "Md_lexer.make_space") else
-        Spaces (n-2)
+let make_space n =
+  if n < 1 then invalid_arg "Omd_lexer.make_space"
+  else Space n
 
 let position orig spot =
   let ( ++ ) (x,y) (a,b) =
