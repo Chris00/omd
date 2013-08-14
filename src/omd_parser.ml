@@ -32,7 +32,7 @@ module StringSet : sig
   val mem : elt -> t -> bool
   val of_list : elt list -> t
 end = struct
-  include Set.Make(struct type t = string let compare = String.compare end)
+  include Set.Make(String)
   let of_list l = List.fold_left (fun r e -> add e r) empty l
 end
 
