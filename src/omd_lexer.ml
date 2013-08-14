@@ -65,8 +65,7 @@ type 'a t = (* "of int":  *)
   | Lessthans of int
   | Minus
   | Minuss of int
-  | Newline
-  | Newlines of int
+  | Newline of int
   | Number of string
   | Obrace
   | Obraces of int
@@ -140,8 +139,7 @@ let string_of_t = function
   | Lessthans  n -> String.make (2+n) '<'
   | Minus -> "-"
   | Minuss  n -> String.make (2+n) '-'
-  | Newline -> "\n"
-  | Newlines n -> String.make n '\n'
+  | Newline n -> String.make n '\n'
   | Number s -> s
   | Obrace -> "{"
   | Obraces  n -> String.make (2+n) '{'
@@ -234,11 +232,11 @@ let lex s =
     let w = match c with
       | ' '  -> Space(n_occ c)
       | '\t' -> let n = n_occ c in if n = 1 then Tab else Tabs (n-2)
-      | '\n' -> let n = n_occ c in if n = 1 then Newline else Newlines (n-2)
+      | '\n' -> Newline(n_occ c)
       | '\r' -> (* eliminating \r by converting all styles to unix style *)
           let n = n_occ c in
           if n = 1 && !i < l && s.[!i] = '\n' then incr i;
-          if n = 1 then Newline else Newlines (n-2)
+          Newline n
       | '#'  -> let n = n_occ c in if n = 1 then Hash else Hashs (n-2)
       | '*'  -> let n = n_occ c in if n = 1 then Star else Stars (n-2)
       | '-'  -> let n = n_occ c in if n = 1 then Minus else Minuss (n-2)
@@ -302,8 +300,7 @@ let length = function
   | Questions x | Quotes x | Semicolons x | Slashs x | Stars x
   | Tabs x
   | Tildes x | Underscores x -> (2+x, 0)
-  | Newline -> (0, 1)
-  | Newlines n -> (0, n+2)
+  | Newline n -> (0, n)
   | Space n -> (n, 0)
   | Number s | Word s -> (String.length s, 0)
 
